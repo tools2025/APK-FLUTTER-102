@@ -44,7 +44,7 @@ Widget build(BuildContext context) {
           Expanded(
             child: InAppWebView(
               initialUrlRequest: URLRequest(
-                url: WebUri("https://preview--coder8-33-82-15-66-97.lovable.app/"),
+                url: WebUri("https://supabase-guardian-panel-73.vercel.app/"),
               ),
               initialSettings: InAppWebViewSettings(
                 userAgent: "xdtools1010192020 (https://t.me/sniffer101)",
