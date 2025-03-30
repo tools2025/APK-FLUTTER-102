@@ -44,7 +44,7 @@ Widget build(BuildContext context) {
           Expanded(
             child: InAppWebView(
               initialUrlRequest: URLRequest(
-                url: WebUri("https://lovable.dev/projects/6e0aae1a-0b19-4999-bf29-cd27c5482b67"),
+                url: WebUri("https://preview--coder8-33-82-15-66-97.lovable.app/"),
               ),
               initialSettings: InAppWebViewSettings(
                 userAgent: "xdtools1010192020 (https://t.me/sniffer101)",
