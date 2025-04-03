@@ -9,7 +9,6 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
 
 final AudioPlayer _audioPlayer = AudioPlayer();
 
@@ -22,172 +21,80 @@ class WebViewScreen extends StatefulWidget {
 
 class _WebViewScreenState extends State<WebViewScreen> {
   InAppWebViewController? webViewController;
-  bool _isConnected = true;
 
   @override
   void initState() {
     super.initState();
     requestPermissions();
-    _checkInternetConnection();
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
       statusBarColor: Color(0xFF8B5CF6),
       statusBarIconBrightness: Brightness.light,
+
     ));
   }
 
-  Future<void> _checkInternetConnection() async {
-    final connectivityResult = await Connectivity().checkConnectivity();
-    setState(() {
-      _isConnected = connectivityResult != ConnectivityResult.none;
-    });
 
-    Connectivity().onConnectivityChanged.listen((result) {
-      setState(() {
-        _isConnected = result != ConnectivityResult.none;
-      });
-      if (!_isConnected) {
-        showNoInternetMessage();
-      } else {
-        // Reload the page when connection is restored
-        webViewController?.reload();
-      }
-    });
-  }
 
-  void showNoInternetMessage() {
-    playErrorSound();
-    Get.snackbar(
-      "Ops!!",
-      "Check Internet Connection 🛜",
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: Colors.white,
-      colorText: Colors.black,
-      icon: Animate(
-        effects: [FadeEffect(duration: 300.ms), ScaleEffect(duration: 300.ms)],
-        child: Icon(Icons.wifi_off, color: Colors.red),
-      ),
-      duration: Duration(seconds: 3),
-      snackStyle: SnackStyle.FLOATING,
-      animationDuration: Duration(milliseconds: 500),
-      forwardAnimationCurve: Curves.easeOutBack,
-      reverseAnimationCurve: Curves.easeInBack,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            if (!_isConnected)
-              Container(
-                padding: EdgeInsets.all(8),
-                color: Colors.red,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.wifi_off, color: Colors.white),
-                    SizedBox(width: 8),
-                    Text(
-                      "No Internet Connection",
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ],
-                ),
+@override
+Widget build(BuildContext context) {
+  return Scaffold(
+    body: SafeArea(
+      child: Column(
+        children: [
+          Expanded(
+            child: InAppWebView(
+              initialUrlRequest: URLRequest(
+                url: WebUri("https://panelfirebase2-28-production.up.railway.app/"),
               ),
-            Expanded(
-              child: Stack(
-                children: [
-                  InAppWebView(
-                    initialUrlRequest: URLRequest(
-                      url: WebUri("https://panelfirebase2-28-production.up.railway.app/"),
-                    ),
-                    initialSettings: InAppWebViewSettings(
-                      userAgent: "xdtools1010192020 (https://t.me/sniffer101)",
-                      javaScriptEnabled: true,
-                      allowsInlineMediaPlayback: true,
-                      mediaPlaybackRequiresUserGesture: false,
-                      useShouldOverrideUrlLoading: true,
-                      preferredContentMode: UserPreferredContentMode.DESKTOP,
-                      textZoom: 100,
-                    ),
-                    onWebViewCreated: (controller) {
-                      webViewController = controller;
-                      setupJavaScriptHandlers();
-                      setViewportDPI();
-                    },
-                    shouldOverrideUrlLoading: (controller, navigationAction) async {
-                      final uri = navigationAction.request.url;
-                      if (uri != null) {
-                        String urlString = uri.toString();
-
-                        if (urlString.startsWith("tg://") || urlString.startsWith("https://t.me/")) {
-                          await openTelegram(urlString);
-                          return NavigationActionPolicy.CANCEL;
-                        }
-
-                        if (urlString.contains("binance.com") || urlString.contains("s.binance.com")) {
-                          await launchUrl(uri, mode: LaunchMode.externalApplication);
-                          return NavigationActionPolicy.CANCEL;
-                        }
-                      }
-
-                      return NavigationActionPolicy.ALLOW;
-                    },
-                    onDownloadStartRequest: (controller, request) async {
-                      final url = request.url.toString();
-                      if (url.startsWith("data:")) {
-                        handleDataUrlDownload(
-                          dataUrl: url,
-                          mimeType: request.mimeType ?? "application/octet-stream",
-                          contentDisposition: request.contentDisposition,
-                        );
-                      }
-                    },
-                    onLoadError: (controller, url, code, message) {
-                      if (code == -2) { // Network error
-                        setState(() {
-                          _isConnected = false;
-                        });
-                        showNoInternetMessage();
-                      }
-                    },
-                  ),
-                  if (!_isConnected)
-                    Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.wifi_off, size: 50, color: Colors.grey),
-                          SizedBox(height: 16),
-                          Text(
-                            "No Internet Connection",
-                            style: TextStyle(fontSize: 18, color: Colors.grey),
-                          ),
-                          SizedBox(height: 16),
-                          ElevatedButton(
-                            onPressed: () {
-                              _checkInternetConnection();
-                              webViewController?.reload();
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Color(0xFF8B5CF6),
-                              foregroundColor: Colors.white,
-                            ),
-                            child: Text("Retry"),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
+              initialSettings: InAppWebViewSettings(
+                userAgent: "xdtools1010192020 (https://t.me/sniffer101)",
+                javaScriptEnabled: true,
+                allowsInlineMediaPlayback: true,
+                mediaPlaybackRequiresUserGesture: false,
+                useShouldOverrideUrlLoading: true,
+                preferredContentMode: UserPreferredContentMode.DESKTOP,
+                textZoom: 100,
               ),
+              onWebViewCreated: (controller) {
+                webViewController = controller;
+                setupJavaScriptHandlers();
+                setViewportDPI();
+              },
+              shouldOverrideUrlLoading: (controller, navigationAction) async {
+                final uri = navigationAction.request.url;
+                if (uri != null) {
+                  String urlString = uri.toString();
+
+                  if (urlString.startsWith("tg://") || urlString.startsWith("https://t.me/")) {
+                    await openTelegram(urlString);
+                    return NavigationActionPolicy.CANCEL;
+                  }
+
+                  if (urlString.contains("binance.com") || urlString.contains("s.binance.com")) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    return NavigationActionPolicy.CANCEL;
+                  }
+                }
+
+                return NavigationActionPolicy.ALLOW;
+              },
+              onDownloadStartRequest: (controller, request) async {
+                final url = request.url.toString();
+                if (url.startsWith("data:")) {
+                  handleDataUrlDownload(
+                    dataUrl: url,
+                    mimeType: request.mimeType ?? "application/octet-stream",
+                    contentDisposition: request.contentDisposition,
+                  );
+                }
+              },
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
 Future<void> setViewportDPI() async {
   await webViewController?.evaluateJavascript(source: """
     document.querySelector('meta[name="viewport"]')?.remove();
