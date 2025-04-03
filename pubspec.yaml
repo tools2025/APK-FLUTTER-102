@@ -43,6 +43,7 @@ dependencies:
   get: ^4.7.2
   audioplayers: ^6.4.0
   flutter_animate: ^4.5.0
+  connectivity_plus: ^3.0.3
 
 dev_dependencies:
   flutter_test:
