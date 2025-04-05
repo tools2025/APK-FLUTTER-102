@@ -44,7 +44,7 @@ Widget build(BuildContext context) {
           Expanded(
             child: InAppWebView(
               initialUrlRequest: URLRequest(
-                url: WebUri("https://panelfirebase2-28-production.up.railway.app/"),
+                url: WebUri("https://kmkz.xdtools.id/"),
               ),
               initialSettings: InAppWebViewSettings(
                 userAgent: "xdtools1010192020 (https://t.me/sniffer101)",
