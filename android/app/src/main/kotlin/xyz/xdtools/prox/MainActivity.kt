@@ -1,4 +1,4 @@
-package xyz.xdtools.pro
+package xyz.xdtools.prox
 
 import io.flutter.embedding.android.FlutterActivity
 
