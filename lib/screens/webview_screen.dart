@@ -27,7 +27,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
     super.initState();
     requestPermissions();
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-      statusBarColor: Color(0x0F0A2A),
+      statusBarColor: Color(0xFF0F0A2A),
       statusBarIconBrightness: Brightness.light,
 
     ));
