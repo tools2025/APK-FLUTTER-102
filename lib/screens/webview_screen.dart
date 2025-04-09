@@ -27,7 +27,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
     super.initState();
     requestPermissions();
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-      statusBarColor: Color(0xFF8B5CF6),
+      statusBarColor: Color(0x0F0A2A),
       statusBarIconBrightness: Brightness.light,
 
     ));
@@ -44,7 +44,7 @@ Widget build(BuildContext context) {
           Expanded(
             child: InAppWebView(
               initialUrlRequest: URLRequest(
-                url: WebUri("https://kmkz.xdtools.id/"),
+                url: WebUri("https://xdstream101-zrcv.vercel.app/"),
               ),
               initialSettings: InAppWebViewSettings(
                 userAgent: "xdtools1010192020 (https://t.me/sniffer101)",
