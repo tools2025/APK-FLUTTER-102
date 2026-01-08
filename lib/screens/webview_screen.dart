@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/services.dart'; // Sudah include Uint8List
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:get/get.dart';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data'; // Tambahkan ini
+// HAPUS import 'dart:typed_data'; // Tidak diperlukan karena Uint8List sudah ada di services.dart
 import 'package:audioplayers/audioplayers.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -265,7 +265,8 @@ Future<void> handleDataUrlDownload({
     fileName = checkDuplicateFileName(ensureFileExtension(fileName, mimeType));
 
     if (decodedText.trim().startsWith('{')) {
-      Uint8List bytes = utf8.encode(decodedText);
+      // Uint8List dari 'dart:convert' sudah cukup
+      Uint8List bytes = utf8.encode(decodedText) as Uint8List;
       showFileNameDialog(bytes, fileName);
       return;
     }
