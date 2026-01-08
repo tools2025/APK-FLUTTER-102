@@ -13,6 +13,10 @@ class WebViewScreen extends StatefulWidget {
 class _WebViewScreenState extends State<WebViewScreen> {
   InAppWebViewController? _controller;
 
+  static const String _homeUrl = "https://xd101-web-dracin.vercel.app/";
+  static const String _appName = "X-DRAMA";
+  static const String _logoUrl = "https://i.postimg.cc/NYWwG4vy/20260108-142703.png";
+
   @override
   void initState() {
     super.initState();
@@ -23,7 +27,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
       statusBarIconBrightness: Brightness.light,
     ));
 
-    // Jangan edgeToEdge/immersive biar aman & rapih
+    // Jangan edgeToEdge/immersive biar layout rapi
     SystemChrome.setEnabledSystemUIMode(
       SystemUiMode.manual,
       overlays: SystemUiOverlay.values,
@@ -33,21 +37,19 @@ class _WebViewScreenState extends State<WebViewScreen> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: false, // kita handle sendiri
+      canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
-        // didPop true berarti sudah dipop oleh sistem (jarang karena canPop false)
         if (didPop) return;
 
-        // 1) kalau web bisa back, back di web
+        // Back di web kalau bisa
         if (_controller != null && await _controller!.canGoBack()) {
           await _controller!.goBack();
           return;
         }
 
-        // 2) kalau tidak bisa, tampilkan dialog exit
-        final exit = await _showNeonExitSheet();
+        // Kalau tidak bisa, konfirmasi exit
+        final exit = await _showSoftExitSheet();
         if (exit == true) {
-          // Aman dari "context across async gap"
           if (!mounted) return;
           SystemNavigator.pop();
         }
@@ -56,11 +58,9 @@ class _WebViewScreenState extends State<WebViewScreen> {
         backgroundColor: Colors.black,
         body: SafeArea(
           top: true,
-          bottom: true, // ✅ tidak lewat navigation bar bawah
+          bottom: true, // ✅ tidak lewat navigation bar
           child: InAppWebView(
-            initialUrlRequest: URLRequest(
-              url: WebUri("https://xd101-web-dracin.vercel.app/"),
-            ),
+            initialUrlRequest: URLRequest(url: WebUri(_homeUrl)),
             initialSettings: InAppWebViewSettings(
               javaScriptEnabled: true,
               useShouldOverrideUrlLoading: true,
@@ -74,22 +74,22 @@ class _WebViewScreenState extends State<WebViewScreen> {
               _setViewport();
             },
 
-            // deprecated fix
+            // FIX deprecated: onLoadError -> onReceivedError
             onReceivedError: (controller, request, error) {},
 
-            shouldOverrideUrlLoading: (controller, navigationAction) async {
-              final uri = navigationAction.request.url;
+            shouldOverrideUrlLoading: (controller, action) async {
+              final uri = action.request.url;
               if (uri == null) return NavigationActionPolicy.ALLOW;
 
               final s = uri.toString();
 
-              // Telegram -> external
+              // Telegram external
               if (s.startsWith("tg://") || s.startsWith("https://t.me/")) {
                 await _launchExternal(s);
                 return NavigationActionPolicy.CANCEL;
               }
 
-              // contoh: binance external kalau perlu
+              // Binance external (opsional)
               if (s.contains("binance.com") || s.contains("s.binance.com")) {
                 await launchUrl(uri, mode: LaunchMode.externalApplication);
                 return NavigationActionPolicy.CANCEL;
@@ -118,8 +118,6 @@ class _WebViewScreenState extends State<WebViewScreen> {
   Future<void> _launchExternal(String url) async {
     final uri = Uri.parse(url);
     final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-
-    // fallback tg:// -> https://t.me/
     if (!ok && url.startsWith("tg://")) {
       final converted = url.replaceFirst("tg://", "https://t.me/");
       await launchUrl(Uri.parse(converted), mode: LaunchMode.externalApplication);
@@ -127,40 +125,43 @@ class _WebViewScreenState extends State<WebViewScreen> {
   }
 
   // ===============================
-  // NEON PINK EXIT BOTTOM SHEET
+  // EXIT BOTTOM SHEET (SOFT / SMOOTH)
   // ===============================
-  Future<bool?> _showNeonExitSheet() async {
+  Future<bool?> _showSoftExitSheet() async {
     if (!mounted) return false;
+
+    // Soft colors (neon dikurangi)
+    const bg1 = Color(0xFF0D0F14);
+    const bg2 = Color(0xFF141826);
+    const accent = Color(0xFFFF4FC3); // pink soft
 
     return showModalBottomSheet<bool>(
       context: context,
       backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.55),
+      barrierColor: Colors.black.withValues(alpha: 0.45), // hitam tapi tidak terlalu
       builder: (ctx) {
         return SafeArea(
           top: false,
           child: Container(
             margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(18),
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF1A0B16),
-                  Color(0xFF2A0F22),
-                ],
+                colors: [bg1, bg2],
               ),
               border: Border.all(
-                color: Colors.black.withValues(alpha: 0.45),
-                width: 1.2,
+                color: Colors.white.withValues(alpha: 0.06),
+                width: 1,
               ),
               boxShadow: [
+                // glow tipis, biar smooth
                 BoxShadow(
-                  color: const Color(0xFFFF2FB3).withValues(alpha: 0.35),
-                  blurRadius: 28,
-                  spreadRadius: 1,
+                  color: accent.withValues(alpha: 0.14),
+                  blurRadius: 18,
+                  spreadRadius: 0.5,
                   offset: const Offset(0, 10),
                 ),
               ],
@@ -168,56 +169,48 @@ class _WebViewScreenState extends State<WebViewScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // handle
+                // handle kecil
                 Container(
                   width: 42,
                   height: 5,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.18),
+                    color: Colors.white.withValues(alpha: 0.16),
                     borderRadius: BorderRadius.circular(99),
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
 
-                // icon neon
-                Container(
-                  width: 54,
-                  height: 54,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFFF2FB3), Color(0xFFB026FF)],
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFFFF2FB3).withValues(alpha: 0.55),
-                        blurRadius: 18,
-                        spreadRadius: 1,
+                Row(
+                  children: [
+                    _LogoBadge(url: _logoUrl, accent: accent),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Keluar aplikasi?",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            "Yakin ingin menutup $_appName?",
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.7),
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  child: const Icon(Icons.power_settings_new, color: Colors.white),
+                    ),
+                  ],
                 ),
 
                 const SizedBox(height: 14),
-                const Text(
-                  "Keluar Aplikasi?",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  "Yakin ingin menutup XD-TOOLS?",
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
-                    fontSize: 13.5,
-                  ),
-                ),
-                const SizedBox(height: 18),
-
                 Row(
                   children: [
                     Expanded(
@@ -225,8 +218,8 @@ class _WebViewScreenState extends State<WebViewScreen> {
                         onPressed: () => Navigator.of(ctx).pop(false),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.white,
-                          side: BorderSide(color: Colors.white.withValues(alpha: 0.18)),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          side: BorderSide(color: Colors.white.withValues(alpha: 0.14)),
+                          padding: const EdgeInsets.symmetric(vertical: 13),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
@@ -239,10 +232,10 @@ class _WebViewScreenState extends State<WebViewScreen> {
                       child: ElevatedButton(
                         onPressed: () => Navigator.of(ctx).pop(true),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFFF2FB3),
+                          backgroundColor: accent.withValues(alpha: 0.88),
                           foregroundColor: Colors.white,
                           elevation: 0,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          padding: const EdgeInsets.symmetric(vertical: 13),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
@@ -257,6 +250,44 @@ class _WebViewScreenState extends State<WebViewScreen> {
           ),
         );
       },
+    );
+  }
+}
+
+class _LogoBadge extends StatelessWidget {
+  const _LogoBadge({required this.url, required this.accent});
+
+  final String url;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 46,
+      height: 46,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        color: Colors.black.withValues(alpha: 0.25),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        boxShadow: [
+          BoxShadow(
+            color: accent.withValues(alpha: 0.12),
+            blurRadius: 14,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Image.network(
+          url,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Icon(
+            Icons.apps_rounded,
+            color: Colors.white.withValues(alpha: 0.8),
+          ),
+        ),
+      ),
     );
   }
 }
