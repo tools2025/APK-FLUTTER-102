@@ -26,69 +26,105 @@ class _WebViewScreenState extends State<WebViewScreen> {
   void initState() {
     super.initState();
     requestPermissions();
-    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-      statusBarColor: Color(0xFF8B5CF6),
+
+    // Status bar hitam dengan ikon putih (cocok dengan AppBar hitam)
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      statusBarColor: Colors.black,
       statusBarIconBrightness: Brightness.light,
+      statusBarBrightness: Brightness.dark,
     ));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: InAppWebView(
-          initialUrlRequest: URLRequest(
-            url: WebUri("https://xd101-web-dracin.vercel.app/"),
+      backgroundColor: Colors.black, // Background seluruh app hitam
+      body: Column(
+        children: [
+          // === APPBAR HITAM DENGAN IKON & TEKS PUTIH ===
+          AppBar(
+            backgroundColor: Colors.black,
+            foregroundColor: Colors.white, // Semua ikon & teks otomatis putih
+            elevation: 0,
+            centerTitle: true,
+            title: const Text(
+              "XD TOOLS",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.2,
+                fontSize: 20,
+              ),
+            ),
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new_rounded),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.refresh_rounded),
+                onPressed: () async {
+                  await webViewController?.reload();
+                },
+              ),
+              const SizedBox(width: 12),
+            ],
           ),
-          initialSettings: InAppWebViewSettings(
-            userAgent: "xdtools1010192020 (https://t.me/sniffer101)",
-            javaScriptEnabled: true,
-            allowsInlineMediaPlayback: true,
-            mediaPlaybackRequiresUserGesture: false,
-            useShouldOverrideUrlLoading: true,
-            preferredContentMode: UserPreferredContentMode.DESKTOP,
-            textZoom: 100,
+
+          // === WEBVIEW MENGISI SISA LAYAR ===
+          Expanded(
+            child: SafeArea(
+              top: false, // AppBar sudah handle bagian atas
+              child: InAppWebView(
+                initialUrlRequest: URLRequest(
+                  url: WebUri("https://xd101-web-dracin.vercel.app/"),
+                ),
+                initialSettings: InAppWebViewSettings(
+                  userAgent: "xdtools1010192020[](https://t.me/sniffer101)",
+                  javaScriptEnabled: true,
+                  allowsInlineMediaPlayback: true,
+                  mediaPlaybackRequiresUserGesture: false,
+                  useShouldOverrideUrlLoading: true,
+                  preferredContentMode: UserPreferredContentMode.DESKTOP,
+                  textZoom: 100,
+                ),
+                onWebViewCreated: (controller) {
+                  webViewController = controller;
+                  setupJavaScriptHandlers();
+                  setViewportDPI();
+                },
+                shouldOverrideUrlLoading: (controller, navigationAction) async {
+                  final uri = navigationAction.request.url;
+                  if (uri != null) {
+                    String urlString = uri.toString();
+                    if (urlString.startsWith("tg://") || urlString.startsWith("https://t.me/")) {
+                      await openTelegram(urlString);
+                      return NavigationActionPolicy.CANCEL;
+                    }
+                    if (urlString.contains("binance.com") || urlString.contains("s.binance.com")) {
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      return NavigationActionPolicy.CANCEL;
+                    }
+                  }
+                  return NavigationActionPolicy.ALLOW;
+                },
+                onDownloadStartRequest: (controller, request) async {
+                  final url = request.url.toString();
+                  if (url.startsWith("data:")) {
+                    handleDataUrlDownload(
+                      dataUrl: url,
+                      mimeType: request.mimeType ?? "application/octet-stream",
+                      contentDisposition: request.contentDisposition,
+                    );
+                  }
+                },
+              ),
+            ),
           ),
-          onWebViewCreated: (controller) {
-            webViewController = controller;
-            setupJavaScriptHandlers();
-            setViewportDPI();
-          },
-          shouldOverrideUrlLoading: (controller, navigationAction) async {
-            final uri = navigationAction.request.url;
-            if (uri != null) {
-              String urlString = uri.toString();
-
-              // ✅ Hanya buka Telegram original
-              if (urlString.startsWith("tg://") || urlString.startsWith("https://t.me/")) {
-                await openTelegram(urlString);
-                return NavigationActionPolicy.CANCEL;
-              }
-
-              // ✅ Buka Binance di Chrome
-              if (urlString.contains("binance.com") || urlString.contains("s.binance.com")) {
-                await launchUrl(uri, mode: LaunchMode.externalApplication);
-                return NavigationActionPolicy.CANCEL;
-              }
-            }
-
-            return NavigationActionPolicy.ALLOW;
-          },
-          onDownloadStartRequest: (controller, request) async {
-            final url = request.url.toString();
-            if (url.startsWith("data:")) {
-              handleDataUrlDownload(
-                dataUrl: url,
-                mimeType: request.mimeType ?? "application/octet-stream",
-                contentDisposition: request.contentDisposition,
-              );
-            }
-          },
-        ),
+        ],
       ),
     );
   }
-  
+
   Future<void> setViewportDPI() async {
     await webViewController?.evaluateJavascript(source: """
     var meta = document.querySelector('meta[name="viewport"]');
@@ -101,8 +137,6 @@ class _WebViewScreenState extends State<WebViewScreen> {
     """);
   }
 
-
-
   Future<void> openTelegram(String url) async {
     try {
       final uri = Uri.parse(url);
@@ -110,7 +144,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
         uri,
         mode: LaunchMode.externalApplication,
       );
-  
+
       if (!launched) {
         if (url.startsWith("tg://")) {
           final convertedUrl = url.replaceFirst("tg://", "https://t.me/");
@@ -148,7 +182,6 @@ class _WebViewScreenState extends State<WebViewScreen> {
         if (target && target.hasAttribute('download')) {
           let fileName = target.getAttribute('download') || 'results';
           let fileUrl = target.href;
-
           window.flutter_inappwebview.callHandler('onDownloadFile', fileName, fileUrl);
         }
       });
@@ -159,7 +192,6 @@ class _WebViewScreenState extends State<WebViewScreen> {
       callback: (args) {
         String fileName = args[0];
         String fileUrl = args[1];
-
         if (fileUrl.startsWith("data:")) {
           handleDataUrlDownload(
             dataUrl: fileUrl,
@@ -200,14 +232,11 @@ Future<void> handleDataUrlDownload({
       showSnackbar("Error", "Invalid URL Data Format", false);
       return;
     }
-
     String encodedData = parts[1];
     String decodedText = Uri.decodeComponent(encodedData);
-
     String fileName = extractFileName(contentDisposition) ??
         extractFileNameFromDataUrl(dataUrl) ??
         "results";
-
     fileName = checkDuplicateFileName(ensureFileExtension(fileName, mimeType));
 
     if (decodedText.trim().startsWith('{')) {
@@ -234,47 +263,47 @@ void showFileNameDialog(Uint8List data, String defaultName) {
   Get.dialog(
     Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      backgroundColor: Color(0xFF15171E), // Warna latar belakang sesuai gambar
+      backgroundColor: const Color(0xFF15171E),
       child: Padding(
-        padding: EdgeInsets.all(20),
+        padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Row(
               children: [
-                Icon(Icons.terminal, color: Color(0xFF8B5CF6)), // Warna ikon sesuai gambar
-                SizedBox(width: 8),
-                Text(
+                const Icon(Icons.terminal, color: Color(0xFF8B5CF6)),
+                const SizedBox(width: 8),
+                const Text(
                   "Save Configuration",
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white, // Warna teks putih sesuai gambar
+                    color: Colors.white,
                   ),
                 ),
-                Spacer(),
+                const Spacer(),
                 GestureDetector(
                   onTap: () => Get.back(),
-                  child: Icon(Icons.close, color: Colors.white), // Warna ikon close putih
+                  child: const Icon(Icons.close, color: Colors.white),
                 ),
               ],
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             TextField(
               controller: controller,
-              style: TextStyle(color: Colors.white), // Warna teks input putih
+              style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
                 labelText: "File Name",
-                labelStyle: TextStyle(color: Colors.white70), // Warna label sedikit redup
+                labelStyle: const TextStyle(color: Colors.white70),
                 filled: true,
-                fillColor: Color(0xFF1E2029), // Warna latar input sesuai gambar
+                fillColor: const Color(0xFF1E2029),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: Color(0xFF8B5CF6)), // Warna border ungu sesuai gambar
+                  borderSide: const BorderSide(color: Color(0xFF8B5CF6)),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: Color(0xFF8B5CF6), width: 2),
+                  borderSide: const BorderSide(color: Color(0xFF8B5CF6), width: 2),
                 ),
               ),
             ),
@@ -283,25 +312,25 @@ void showFileNameDialog(Uint8List data, String defaultName) {
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
                       error.value,
-                      style: TextStyle(color: Colors.red),
+                      style: const TextStyle(color: Colors.red),
                     ),
                   )
-                : SizedBox.shrink()),
-            SizedBox(height: 20),
+                : const SizedBox.shrink()),
+            const SizedBox(height: 20),
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () => Get.back(),
                     style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: Color(0xFF8B5CF6)), // Warna border ungu
-                      foregroundColor: Colors.white, // Warna teks putih
+                      side: const BorderSide(color: Color(0xFF8B5CF6)),
+                      foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
-                    child: Text("Cancel"),
+                    child: const Text("Cancel"),
                   ),
                 ),
-                SizedBox(width: 10),
+                const SizedBox(width: 10),
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () {
@@ -315,11 +344,11 @@ void showFileNameDialog(Uint8List data, String defaultName) {
                       }
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Color(0xFF8B5CF6), // Warna tombol sesuai gambar
-                      foregroundColor: Colors.white, // Warna teks putih
+                      backgroundColor: const Color(0xFF8B5CF6),
+                      foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
-                    child: Text("Save"),
+                    child: const Text("Save"),
                   ),
                 ),
               ],
@@ -335,10 +364,8 @@ void showFileNameDialog(Uint8List data, String defaultName) {
 Future<void> saveFile(Uint8List data, String name) async {
   Directory dir = Directory("/storage/emulated/0/Download/XD-TOOLS");
   if (!dir.existsSync()) dir.createSync(recursive: true);
-
   File file = File("${dir.path}/$name");
   await file.writeAsBytes(data);
-
   showSnackbar("Succeed", "Saved in: ${file.path}", true);
 }
 
@@ -356,20 +383,14 @@ String? extractFileNameFromDataUrl(String dataUrl) {
 }
 
 String ensureFileExtension(String name, String mimeType) {
-  // Hapus spasi di awal dan akhir
   name = name.trim();
-
-  // Jika nama diakhiri dengan titik ".", hapus titik tersebut
   if (name.endsWith(".")) {
     name = name.substring(0, name.length - 1);
   }
-
-  // Jika tidak memiliki ekstensi (tidak ada titik di dalam nama)
   if (!name.contains(".")) {
-    return "$name.txt"; // Tambahkan ekstensi default ".txt"
+    return "$name.txt";
   }
-
-  return name; // Jika sudah memiliki ekstensi, biarkan
+  return name;
 }
 
 String checkDuplicateFileName(String fileName) {
@@ -377,17 +398,17 @@ String checkDuplicateFileName(String fileName) {
   int counter = 1;
   String newName = fileName;
   while (File("${dir.path}/$newName").existsSync()) {
-    newName = "${fileName.split('.').first}($counter).${fileName.split('.').last}";
+    final parts = fileName.split('.');
+    final ext = parts.length > 1 ? '.${parts.last}' : '';
+    final base = parts.length > 1 ? fileName.substring(0, fileName.length - ext.length) : fileName;
+    newName = "$base($counter)$ext";
     counter++;
   }
   return newName;
 }
 
-
-
 void showSnackbar(String title, String message, bool success) {
   success ? playSuccessSound() : playErrorSound();
-
   Get.snackbar(
     title,
     message,
@@ -395,13 +416,13 @@ void showSnackbar(String title, String message, bool success) {
     backgroundColor: Colors.white,
     colorText: Colors.black,
     icon: Animate(
-      effects: [FadeEffect(duration: 300.ms), ScaleEffect(duration: 300.ms)],
+      effects: const [FadeEffect(duration: Duration(milliseconds: 300)), ScaleEffect(duration: Duration(milliseconds: 300))],
       child: success
-          ? Icon(Icons.check_circle, color: Colors.green)
-          : Icon(Icons.error, color: Colors.red),
+          ? const Icon(Icons.check_circle, color: Colors.green)
+          : const Icon(Icons.error, color: Colors.red),
     ),
     snackStyle: SnackStyle.FLOATING,
-    animationDuration: Duration(milliseconds: 500),
+    animationDuration: const Duration(milliseconds: 500),
     forwardAnimationCurve: Curves.easeOutBack,
     reverseAnimationCurve: Curves.easeInBack,
   );
