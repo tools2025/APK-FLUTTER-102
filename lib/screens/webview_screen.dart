@@ -27,19 +27,23 @@ class _WebViewScreenState extends State<WebViewScreen> {
     super.initState();
     requestPermissions();
 
-    // PERUBAHAN HANYA DI SINI:
-    // Status bar background HITAM + icon PUTIH
+    // PERBAIKAN UTAMA: Status bar HITAM + icon PUTIH
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.black,                // Background status bar hitam
-      statusBarIconBrightness: Brightness.light,   // Icon (sinyal, baterai, jam) PUTIH
+      statusBarColor: Colors.transparent,          // Transparan agar ikut background hitam
+      statusBarIconBrightness: Brightness.light,   // Icon PUTIH (sinyal, baterai, jam)
       statusBarBrightness: Brightness.dark,        // Untuk iOS
     ));
+
+    // Wajib untuk Flutter versi baru agar background hitam naik ke status bar
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.black, // Background app hitam pekat (wajib!)
       body: SafeArea(
+        top: false, // Biarkan WebView mulai dari atas (di bawah status bar transparan)
         child: InAppWebView(
           initialUrlRequest: URLRequest(
             url: WebUri("https://xd101-web-dracin.vercel.app/"),
@@ -62,12 +66,10 @@ class _WebViewScreenState extends State<WebViewScreen> {
             final uri = navigationAction.request.url;
             if (uri != null) {
               String urlString = uri.toString();
-              // ✅ Hanya buka Telegram original
               if (urlString.startsWith("tg://") || urlString.startsWith("https://t.me/")) {
                 await openTelegram(urlString);
                 return NavigationActionPolicy.CANCEL;
               }
-              // ✅ Buka Binance di Chrome
               if (urlString.contains("binance.com") || urlString.contains("s.binance.com")) {
                 await launchUrl(uri, mode: LaunchMode.externalApplication);
                 return NavigationActionPolicy.CANCEL;
@@ -170,7 +172,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
 }
 
 // ===========================
-// Utility Functions (SAMA PERSIS DENGAN KODE AWAL)
+// Utility Functions (TIDAK DIUBAH)
 // ===========================
 
 Future<String?> pickFile() async {
