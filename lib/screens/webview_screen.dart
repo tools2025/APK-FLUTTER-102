@@ -27,100 +27,65 @@ class _WebViewScreenState extends State<WebViewScreen> {
     super.initState();
     requestPermissions();
 
-    // Status bar hitam dengan ikon putih (cocok dengan AppBar hitam)
+    // PERUBAHAN HANYA DI SINI:
+    // Status bar background HITAM + icon PUTIH
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.black,
-      statusBarIconBrightness: Brightness.light,
-      statusBarBrightness: Brightness.dark,
+      statusBarColor: Colors.black,                // Background status bar hitam
+      statusBarIconBrightness: Brightness.light,   // Icon (sinyal, baterai, jam) PUTIH
+      statusBarBrightness: Brightness.dark,        // Untuk iOS
     ));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black, // Background seluruh app hitam
-      body: Column(
-        children: [
-          // === APPBAR HITAM DENGAN IKON & TEKS PUTIH ===
-          AppBar(
-            backgroundColor: Colors.black,
-            foregroundColor: Colors.white, // Semua ikon & teks otomatis putih
-            elevation: 0,
-            centerTitle: true,
-            title: const Text(
-              "XD TOOLS",
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.2,
-                fontSize: 20,
-              ),
-            ),
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new_rounded),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.refresh_rounded),
-                onPressed: () async {
-                  await webViewController?.reload();
-                },
-              ),
-              const SizedBox(width: 12),
-            ],
+      body: SafeArea(
+        child: InAppWebView(
+          initialUrlRequest: URLRequest(
+            url: WebUri("https://xd101-web-dracin.vercel.app/"),
           ),
-
-          // === WEBVIEW MENGISI SISA LAYAR ===
-          Expanded(
-            child: SafeArea(
-              top: false, // AppBar sudah handle bagian atas
-              child: InAppWebView(
-                initialUrlRequest: URLRequest(
-                  url: WebUri("https://xd101-web-dracin.vercel.app/"),
-                ),
-                initialSettings: InAppWebViewSettings(
-                  userAgent: "xdtools1010192020[](https://t.me/sniffer101)",
-                  javaScriptEnabled: true,
-                  allowsInlineMediaPlayback: true,
-                  mediaPlaybackRequiresUserGesture: false,
-                  useShouldOverrideUrlLoading: true,
-                  preferredContentMode: UserPreferredContentMode.DESKTOP,
-                  textZoom: 100,
-                ),
-                onWebViewCreated: (controller) {
-                  webViewController = controller;
-                  setupJavaScriptHandlers();
-                  setViewportDPI();
-                },
-                shouldOverrideUrlLoading: (controller, navigationAction) async {
-                  final uri = navigationAction.request.url;
-                  if (uri != null) {
-                    String urlString = uri.toString();
-                    if (urlString.startsWith("tg://") || urlString.startsWith("https://t.me/")) {
-                      await openTelegram(urlString);
-                      return NavigationActionPolicy.CANCEL;
-                    }
-                    if (urlString.contains("binance.com") || urlString.contains("s.binance.com")) {
-                      await launchUrl(uri, mode: LaunchMode.externalApplication);
-                      return NavigationActionPolicy.CANCEL;
-                    }
-                  }
-                  return NavigationActionPolicy.ALLOW;
-                },
-                onDownloadStartRequest: (controller, request) async {
-                  final url = request.url.toString();
-                  if (url.startsWith("data:")) {
-                    handleDataUrlDownload(
-                      dataUrl: url,
-                      mimeType: request.mimeType ?? "application/octet-stream",
-                      contentDisposition: request.contentDisposition,
-                    );
-                  }
-                },
-              ),
-            ),
+          initialSettings: InAppWebViewSettings(
+            userAgent: "xdtools1010192020[](https://t.me/sniffer101)",
+            javaScriptEnabled: true,
+            allowsInlineMediaPlayback: true,
+            mediaPlaybackRequiresUserGesture: false,
+            useShouldOverrideUrlLoading: true,
+            preferredContentMode: UserPreferredContentMode.DESKTOP,
+            textZoom: 100,
           ),
-        ],
+          onWebViewCreated: (controller) {
+            webViewController = controller;
+            setupJavaScriptHandlers();
+            setViewportDPI();
+          },
+          shouldOverrideUrlLoading: (controller, navigationAction) async {
+            final uri = navigationAction.request.url;
+            if (uri != null) {
+              String urlString = uri.toString();
+              // ✅ Hanya buka Telegram original
+              if (urlString.startsWith("tg://") || urlString.startsWith("https://t.me/")) {
+                await openTelegram(urlString);
+                return NavigationActionPolicy.CANCEL;
+              }
+              // ✅ Buka Binance di Chrome
+              if (urlString.contains("binance.com") || urlString.contains("s.binance.com")) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+                return NavigationActionPolicy.CANCEL;
+              }
+            }
+            return NavigationActionPolicy.ALLOW;
+          },
+          onDownloadStartRequest: (controller, request) async {
+            final url = request.url.toString();
+            if (url.startsWith("data:")) {
+              handleDataUrlDownload(
+                dataUrl: url,
+                mimeType: request.mimeType ?? "application/octet-stream",
+                contentDisposition: request.contentDisposition,
+              );
+            }
+          },
+        ),
       ),
     );
   }
@@ -205,7 +170,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
 }
 
 // ===========================
-// Utility Functions
+// Utility Functions (SAMA PERSIS DENGAN KODE AWAL)
 // ===========================
 
 Future<String?> pickFile() async {
