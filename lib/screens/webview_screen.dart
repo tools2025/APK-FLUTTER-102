@@ -39,7 +39,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
         backgroundColor: Colors.black,
         body: SafeArea(
           top: true,
-          bottom: false,
+          bottom: true,
           child: InAppWebView(
             initialUrlRequest: URLRequest(
               url: WebUri("https://xd101-web-dracin.vercel.app/"),
