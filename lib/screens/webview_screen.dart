@@ -1,14 +1,16 @@
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:get/get.dart';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:audioplayers/audioplayers.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:get/get.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 final AudioPlayer _audioPlayer = AudioPlayer();
 
@@ -21,49 +23,59 @@ class WebViewScreen extends StatefulWidget {
 
 class _WebViewScreenState extends State<WebViewScreen> {
   InAppWebViewController? webViewController;
+
   double _progress = 0;
   bool _isLoading = true;
+
+  PullToRefreshController? _pullToRefreshController;
 
   @override
   void initState() {
     super.initState();
+
+    // ANDROID ONLY: Status bar hitam + ikon putih (signal/battery)
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.black,
+        statusBarIconBrightness: Brightness.light,
+      ),
+    );
+
     requestPermissions();
 
-    // Status bar transparan + icon putih + edge-to-edge
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-      statusBarBrightness: Brightness.dark,
-    ));
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    _pullToRefreshController = PullToRefreshController(
+      settings: PullToRefreshSettings(color: const Color(0xFF8B5CF6)),
+      onRefresh: () async => await webViewController?.reload(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _audioPlayer.stop();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final double statusBarHeight = MediaQuery.of(context).padding.top;
-
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          // Background hitam penuh sampai atas
-          Container(color: Colors.black),
 
-          // Konten utama: WebView dengan padding atas
-          Column(
-            children: [
-              // Progress bar tipis di atas (hanya muncul saat loading)
-              if (_progress < 1.0)
-                LinearProgressIndicator(
-                  value: _progress,
-                  backgroundColor: Colors.transparent,
-                  valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF8B5CF6)),
-                  minHeight: 2,
-                ),
-
-              Expanded(
-                child: Padding(
-                  padding: EdgeInsets.only(top: statusBarHeight),
+      // SafeArea biar WebView rapih (tidak nabrak status bar)
+      body: SafeArea(
+        top: true,
+        bottom: false,
+        child: Stack(
+          children: [
+            Column(
+              children: [
+                if (_progress < 1.0)
+                  LinearProgressIndicator(
+                    value: _progress,
+                    minHeight: 2,
+                    backgroundColor: Colors.transparent,
+                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF8B5CF6)),
+                  ),
+                Expanded(
                   child: InAppWebView(
                     initialUrlRequest: URLRequest(
                       url: WebUri("https://xd101-web-dracin.vercel.app/"),
@@ -78,41 +90,50 @@ class _WebViewScreenState extends State<WebViewScreen> {
                       textZoom: 100,
                       transparentBackground: false,
                     ),
+                    pullToRefreshController: _pullToRefreshController,
+
                     onWebViewCreated: (controller) {
                       webViewController = controller;
                       setupJavaScriptHandlers();
                       setViewportDPI();
                     },
+
                     onLoadStart: (controller, url) {
                       setState(() {
                         _isLoading = true;
                         _progress = 0;
                       });
                     },
+
                     onProgressChanged: (controller, progress) {
-                      setState(() {
-                        _progress = progress / 100;
-                      });
+                      setState(() => _progress = progress / 100);
                     },
-                    onLoadStop: (controller, url) {
-                      setState(() {
-                        _isLoading = false;
-                      });
+
+                    onLoadStop: (controller, url) async {
+                      _pullToRefreshController?.endRefreshing();
+                      setState(() => _isLoading = false);
                     },
-                    onLoadError: (controller, url, code, message) {
-                      setState(() {
-                        _isLoading = false;
-                      });
+
+                    // ✅ FIX: onLoadError deprecated -> onReceivedError
+                    onReceivedError: (controller, request, error) {
+                      if (!request.isForMainFrame) return;
+                      _pullToRefreshController?.endRefreshing();
+                      setState(() => _isLoading = false);
                       showSnackbar("Error", "Failed to load page", false);
                     },
+
                     shouldOverrideUrlLoading: (controller, navigationAction) async {
                       final uri = navigationAction.request.url;
                       if (uri != null) {
-                        String urlString = uri.toString();
+                        final urlString = uri.toString();
+
+                        // Telegram
                         if (urlString.startsWith("tg://") || urlString.startsWith("https://t.me/")) {
                           await openTelegram(urlString);
                           return NavigationActionPolicy.CANCEL;
                         }
+
+                        // Binance external
                         if (urlString.contains("binance.com") || urlString.contains("s.binance.com")) {
                           await launchUrl(uri, mode: LaunchMode.externalApplication);
                           return NavigationActionPolicy.CANCEL;
@@ -120,60 +141,49 @@ class _WebViewScreenState extends State<WebViewScreen> {
                       }
                       return NavigationActionPolicy.ALLOW;
                     },
+
                     onDownloadStartRequest: (controller, request) async {
                       final url = request.url.toString();
                       if (url.startsWith("data:")) {
-                        handleDataUrlDownload(
+                        await handleDataUrlDownload(
                           dataUrl: url,
                           mimeType: request.mimeType ?? "application/octet-stream",
                           contentDisposition: request.contentDisposition,
                         );
                       }
                     },
-                    pullToRefreshController: PullToRefreshController(
-                      settings: PullToRefreshSettings(color: const Color(0xFF8B5CF6)),
-                      onRefresh: () async {
-                        await webViewController?.reload();
-                      },
-                    ),
-                    onEnterFullscreen: (controller) {
-                      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-                    },
-                    onExitFullscreen: (controller) {
-                      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-                    },
+                  ),
+                ),
+              ],
+            ),
+
+            // Loading overlay
+            if (_isLoading && _progress < 1.0)
+              Container(
+                color: Colors.black.withValues(alpha: 0.9), // ✅ FIX: withOpacity -> withValues
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const CircularProgressIndicator(
+                        color: Color(0xFF8B5CF6),
+                        strokeWidth: 3,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        "Loading XD-TOOLS...",
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.8), // ✅ FIX
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-            ],
-          ),
-
-          // Loading overlay (opsional, lebih elegan)
-          if (_isLoading && _progress < 1.0)
-            Container(
-              color: Colors.black.withOpacity(0.9),
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const CircularProgressIndicator(
-                      color: Color(0xFF8B5CF6),
-                      strokeWidth: 3,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      "Loading XD-TOOLS...",
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -193,28 +203,35 @@ class _WebViewScreenState extends State<WebViewScreen> {
   Future<void> openTelegram(String url) async {
     try {
       final uri = Uri.parse(url);
-      bool launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+
       if (!launched) {
         if (url.startsWith("tg://")) {
           final convertedUrl = url.replaceFirst("tg://", "https://t.me/");
           await launchUrl(Uri.parse(convertedUrl), mode: LaunchMode.externalApplication);
         } else {
-          await launchUrl(Uri.parse("https://play.google.com/store/apps/details?id=org.telegram.messenger"),
-              mode: LaunchMode.externalApplication);
+          await launchUrl(
+            Uri.parse("https://play.google.com/store/apps/details?id=org.telegram.messenger"),
+            mode: LaunchMode.externalApplication,
+          );
         }
       }
-    } catch (e) {
-      await launchUrl(Uri.parse("https://play.google.com/store/apps/details?id=org.telegram.messenger"),
-          mode: LaunchMode.externalApplication);
+    } catch (_) {
+      await launchUrl(
+        Uri.parse("https://play.google.com/store/apps/details?id=org.telegram.messenger"),
+        mode: LaunchMode.externalApplication,
+      );
     }
   }
 
   void setupJavaScriptHandlers() {
+    // file picker (kalau web butuh)
     webViewController?.addJavaScriptHandler(
       handlerName: "filePicker",
       callback: (args) async => await pickFile(),
     );
 
+    // intercept anchor download attribute
     webViewController?.evaluateJavascript(source: """
       document.addEventListener('click', function(event) {
         let target = event.target;
@@ -232,8 +249,9 @@ class _WebViewScreenState extends State<WebViewScreen> {
     webViewController?.addJavaScriptHandler(
       handlerName: "onDownloadFile",
       callback: (args) {
-        String fileName = args[0];
-        String fileUrl = args[1];
+        final String fileName = (args.isNotEmpty ? args[0] : "results").toString();
+        final String fileUrl = (args.length > 1 ? args[1] : "").toString();
+
         if (fileUrl.startsWith("data:")) {
           handleDataUrlDownload(
             dataUrl: fileUrl,
@@ -247,16 +265,20 @@ class _WebViewScreenState extends State<WebViewScreen> {
 }
 
 // ===========================
-// Semua Utility Functions (tetap sama, hanya sedikit rapih)
+// Utility Functions
 // ===========================
 
 Future<String?> pickFile() async {
-  FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.any);
+  final result = await FilePicker.platform.pickFiles(type: FileType.any);
   return result?.files.single.path;
 }
 
 Future<void> requestPermissions() async {
-  await [Permission.storage, Permission.notification, Permission.manageExternalStorage].request();
+  await [
+    Permission.storage,
+    Permission.notification,
+    Permission.manageExternalStorage,
+  ].request();
 }
 
 Future<void> handleDataUrlDownload({
@@ -270,24 +292,29 @@ Future<void> handleDataUrlDownload({
       showSnackbar("Error", "Invalid URL Data Format", false);
       return;
     }
-    String encodedData = parts[1];
-    String decodedText = Uri.decodeComponent(encodedData);
+
+    final encodedData = parts[1];
+    final decodedText = Uri.decodeComponent(encodedData);
+
     String fileName = extractFileName(contentDisposition) ??
         extractFileNameFromDataUrl(dataUrl) ??
         "results";
+
     fileName = checkDuplicateFileName(ensureFileExtension(fileName, mimeType));
 
     Uint8List bytes;
+
     if (decodedText.trim().startsWith('{')) {
-      bytes = utf8.encode(decodedText);
+      bytes = Uint8List.fromList(utf8.encode(decodedText));
     } else {
       try {
         bytes = base64Decode(encodedData);
-      } catch (e) {
+      } catch (_) {
         showSnackbar("Error", "Data format not recognized", false);
         return;
       }
     }
+
     showFileNameDialog(bytes, fileName);
   } catch (e) {
     showSnackbar("Error", "Failed to process file: $e", false);
@@ -316,7 +343,10 @@ void showFileNameDialog(Uint8List data, String defaultName) {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
                 ),
                 const Spacer(),
-                GestureDetector(onTap: () => Get.back(), child: const Icon(Icons.close, color: Colors.white70)),
+                GestureDetector(
+                  onTap: () => Get.back(),
+                  child: const Icon(Icons.close, color: Colors.white70),
+                ),
               ],
             ),
             const SizedBox(height: 24),
@@ -335,12 +365,14 @@ void showFileNameDialog(Uint8List data, String defaultName) {
                 ),
               ),
             ),
-            Obx(() => error.value.isNotEmpty
-                ? Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(error.value, style: const TextStyle(color: Colors.red)),
-                  )
-                : const SizedBox.shrink()),
+            Obx(
+              () => error.value.isNotEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(error.value, style: const TextStyle(color: Colors.red)),
+                    )
+                  : const SizedBox.shrink(),
+            ),
             const SizedBox(height: 24),
             Row(
               children: [
@@ -389,9 +421,9 @@ void showFileNameDialog(Uint8List data, String defaultName) {
 }
 
 Future<void> saveFile(Uint8List data, String name) async {
-  Directory dir = Directory("/storage/emulated/0/Download/XD-TOOLS");
+  final dir = Directory("/storage/emulated/0/Download/XD-TOOLS");
   if (!dir.existsSync()) dir.createSync(recursive: true);
-  File file = File("${dir.path}/$name");
+  final file = File("${dir.path}/$name");
   await file.writeAsBytes(data);
   showSnackbar("Success", "Saved to: ${file.path}", true);
 }
@@ -417,9 +449,10 @@ String ensureFileExtension(String name, String mimeType) {
 }
 
 String checkDuplicateFileName(String fileName) {
-  Directory dir = Directory("/storage/emulated/0/Download/XD-TOOLS");
+  final dir = Directory("/storage/emulated/0/Download/XD-TOOLS");
   int counter = 1;
   String newName = fileName;
+
   while (File("${dir.path}/$newName").existsSync()) {
     final parts = fileName.split('.');
     final ext = parts.length > 1 ? '.${parts.last}' : '';
@@ -427,11 +460,13 @@ String checkDuplicateFileName(String fileName) {
     newName = "$base($counter)$ext";
     counter++;
   }
+
   return newName;
 }
 
 void showSnackbar(String title, String message, bool success) {
   success ? playSuccessSound() : playErrorSound();
+
   Get.snackbar(
     title,
     message,
